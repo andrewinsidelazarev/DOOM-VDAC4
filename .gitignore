@@ -1,0 +1,34 @@
+# Сборка ESP-IDF, Z80 и стенда ПК
+build/
+*.log
+__pycache__/
+*.pyc
+third_party/fat32/build/
+firmware/bl616/copro/test/host_test
+third_party/doomgeneric/.git/
+third_party/fat32/.git/
+# История исходных клонов doomgeneric и FAT32 — только локально; в репозитории файлы с правками порта
+.git-upstream/
+
+# Прошивка BL616 с рендером DOOM не публикуется, в том числе модель copro (без неё стенд ПК
+# из репозитория не собирается)
+firmware/
+tools/build_bl616.ps1
+tests/test_bl616.py
+tests/bl616_test.c
+# Копии чужих исходников (AVR pentevo) — только для справки
+docs/references/
+
+# Генерирует ESP-IDF (исходное — sdkconfig.defaults)
+sdkconfig
+sdkconfig.old
+dependencies.lock
+
+# IWAD — данные id Software, в репозиторий не входят
+*.WAD
+*.wad
+
+# Исполняемые файлы — только текущие dist/DOOM; архивы — в релизах GitHub
+dist/*.zip
+dist/DOOMDBG.SPG
+dist/BL616/

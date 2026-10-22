@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# Fetch the shareware DOOM1.WAD and verify it before the build uses it.
+#
+# The hash check is not ceremony. The WAD is flashed to a raw partition and
+# memory-mapped; a truncated or substituted file does not fail at flash time,
+# it fails much later as a corrupt lump directory inside Doom, which reads like
+# a simulator bug rather than a bad download.
+
+set -euo pipefail
+
+DEST="$(cd "$(dirname "$0")/.." && pwd)/wad/doom1.wad"
+URL="${DOOM1_WAD_URL:-https://github.com/Akbar30Bill/DOOM_wads/raw/master/doom1.wad}"
+
+# Shareware DOOM1.WAD v1.9: 4,196,020 bytes.
+EXPECT_SHA="1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771"
+EXPECT_BYTES=4196020
+
+mkdir -p "$(dirname "$DEST")"
+
+if [ -f "$DEST" ]; then
+    have="$(shasum -a 256 "$DEST" | cut -d' ' -f1)"
+    if [ "$have" = "$EXPECT_SHA" ]; then
+        echo "doom1.wad already present and verified"
+        exit 0
+    fi
+    echo "doom1.wad present but hash mismatch — refetching" >&2
+fi
+
+echo "fetching $URL"
+curl -sSL --fail -o "$DEST" "$URL"
+
+bytes="$(wc -c < "$DEST" | tr -d ' ')"
+have="$(shasum -a 256 "$DEST" | cut -d' ' -f1)"
+
+if [ "$bytes" != "$EXPECT_BYTES" ] || [ "$have" != "$EXPECT_SHA" ]; then
+    echo "doom1.wad failed verification:" >&2
+    echo "  size   got $bytes  want $EXPECT_BYTES" >&2
+    echo "  sha256 got $have" >&2
+    echo "         want $EXPECT_SHA" >&2
+    rm -f "$DEST"
+    exit 1
+fi
+
+# The first four bytes are the magic Doom itself checks; a proxy that served an
+# HTML error page would pass a size check on a bad day but never this.
+magic="$(head -c 4 "$DEST")"
+if [ "$magic" != "IWAD" ]; then
+    echo "doom1.wad does not start with IWAD (got '$magic')" >&2
+    rm -f "$DEST"
+    exit 1
+fi
+
+echo "doom1.wad verified: $bytes bytes, sha256 $have"
