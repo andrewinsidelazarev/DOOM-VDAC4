@@ -724,7 +724,15 @@ FtBuildDl:
         call FtPutN
         ld a,(FtFontOk)
         or a
-        call nz,FtPutTexts
+        jr z,.tail
+        ld a,(FtMenu)
+        or a
+        jr nz,.menu
+        call FtPutTexts
+        jr .tail
+.menu:
+        call FtPutMenu
+.tail:
         ld hl,FtTplTail
         ld b,2
         jp FtPutN
@@ -942,6 +950,79 @@ FtPutGlow:
         add hl,de
         ld de,(BAR_Y0 + BAR_Y1) / 2
         jp FtPutV
+
+; Меню выбора игры (wadmenu.asm) вместо строк этапа и процентов: пункты «n НАЗВАНИЕ» в строку
+; над полосой шрифтом 27, выделенный — цветом процентов; под полосой — подсказка шрифтом 26.
+MENU_GAP        EQU 40                  ; точек между пунктами
+FtPutMenu:
+        ld hl,BAR_X0
+        ld (FtMenuX),hl
+        xor a
+        ld (FtMenuI),a
+.item:
+        ld a,(FtMenuI)
+        ld hl,MenuCount
+        cp (hl)
+        jr nc,.hint
+        ld e,a
+        ld d,0
+        ld hl,MenuList
+        add hl,de
+        ld a,(hl)
+        call MenuEntry
+        inc hl
+        inc hl
+        ld e,(hl)
+        inc hl
+        ld d,(hl)                       ; DE — подпись
+        ld hl,FtMenuStr
+        ld a,(FtMenuI)
+        add a,'1'
+        ld (hl),a
+        inc hl
+        ld (hl),' '
+        inc hl
+        ex de,hl
+.copy:
+        ld a,(hl)
+        ld (de),a
+        inc hl
+        inc de
+        or a
+        jr nz,.copy
+        ld hl,FtMenuStr
+        ld (FtTStr),hl
+        ld bc,FtRgbStatus
+        ld a,(FtMenuI)
+        ld hl,MenuSel
+        cp (hl)
+        jr nz,.color
+        ld bc,FtRgbPct
+.color:
+        ld a,1
+        ld hl,(FtMenuX)
+        ld de,TEXT_Y
+        call FtTextSh
+        ld a,1
+        call FtTextW
+        ld de,(FtMenuX)
+        add hl,de
+        ld de,MENU_GAP
+        add hl,de
+        ld (FtMenuX),hl
+        ld hl,FtMenuI
+        inc (hl)
+        jr .item
+.hint:
+        ld hl,FtMenuHint
+        ld (FtTStr),hl
+        xor a
+        ld hl,BAR_X0
+        ld de,FOOT_Y
+        ld bc,FtRgbFoot
+        jp FtTextSh
+FtMenuHint:
+        db "Choose the game: number or arrows, Enter to start",0
 
 ; Строки: этап (слева), проценты (справа), WAD (под полосой) — с тенью.
 FtPutTexts:
@@ -1341,6 +1422,10 @@ FtLastDraw: dw 0
 FtGap:     db 2                         ; кадров FT812 между кадрами экрана; поиск по карте — 4
 FtPicF0:   dw 0                         ; кадр, когда картинка распаковалась
 FtFooter:  dw 0                         ; строка WAD (0 — нет)
+FtMenu:    db 0                         ; меню выбора игры вместо строк этапа (wadmenu.asm)
+FtMenuI:   db 0
+FtMenuX:   dw 0
+FtMenuStr: ds 20                        ; «n НАЗВАНИЕ»
 FtX1:      dw 0
 FtBx:      dw 0
 FtSrc:     dw 0
@@ -1357,4 +1442,4 @@ FtRoot:    ds 3
 FtBuf:     ds 4
 FtPct:     ds 6
 FtW:       ds 3 * 128                   ; ширины символов шрифтов 26, 27, 29
-FtDl:      ds 1024
+FtDl:      ds 2048                      ; с меню выбора игры лист длиннее 256 слов

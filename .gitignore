@@ -32,3 +32,10 @@ dependencies.lock
 dist/*.zip
 dist/DOOMDBG.SPG
 dist/BL616/
+
+# Архивы с данными игр
+*.7z
+
+# Заметки разработки, журнал проверок и внутренние задания — только локально
+VALIDATION.md
+docs/

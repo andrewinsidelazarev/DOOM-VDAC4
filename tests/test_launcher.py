@@ -92,6 +92,7 @@ class Esp:
         # одного теста, как файл во flash; None — прошивка до 0.1.83, на команды отвечает ошибкой
         self.paths=paths;self.path_set_ok=path_set_ok;self.path_gets=[];self.path_sets=[]
         self.ps2=bytearray()
+        self.wad_name='DOOM1.WAD'               # какой IWAD загрузчик отдаст в пакете 70
         if reboot:
             self.plan=[(0xE5,fs(0,'D1SAVE0.DSG'),('stat',len(SAVE))),
                        (0xE5,fs(1,'D1SAVE0.DSG',length=960),('data',SAVE[:960])),
@@ -142,7 +143,7 @@ class Esp:
         if c==0x6B:self.committed=True;return frame(0xEB,b'\1')
         if c==0x6C:assert p==b'DOOM.ELF\0';self.started=True;return frame(0xEC,b'\0')
         if c==0x70:
-            assert p==struct.pack('<I',len(WAD))+b'DOOM1.WAD\0'
+            assert p==struct.pack('<I',len(WAD))+self.wad_name.encode()+b'\0',p
             return frame(0xF0,b'\1')+self.next_request()
         if c==0x76:
             # 76 [seq, смещение] -> F6 [seq, 1, смещение, число, данные], порция до PIECE байт
@@ -348,6 +349,24 @@ class Machine(SpiLinkMixin):
             m.bc,m.de,m.hl=0xA55A,0x1234,0x5678;m.a,m.f=status,64 if not status else 0
             m.pc=int.from_bytes(self.memory[m.sp:m.sp+2],'little');m.sp+=2
         raise AssertionError(('timeout',hex(m.pc),self.rx_polls))
+
+def add_wad(disk,folder,name):
+    # Ещё один IWAD в каталоге игры — на тех же кластерах, что DOOM1.WAD (данные те же).
+    sector=disk.data_start+(folder-2)*disk.spc;raw=bytearray(disk.read(sector))
+    at=next(i for i in range(0,512,32) if raw[i]==0)
+    raw[at:at+32]=entry(name,201,len(WAD));disk.write(sector,bytes(raw))
+
+class MenuMachine(Machine):
+    # Клавиши PS/2 приходят, когда загрузчик показал меню выбора игры (FtMenu); джойстик Kempston —
+    # значения порта #1F по очереди, последнее держится.
+    def __init__(self,disk,app,keys=b'',joy=None,**kw):
+        super().__init__(disk,app,**kw);self.menu_keys=bytes(keys);self.joy=list(joy) if joy else None
+    def port_in(self,port):
+        if port==0xBFF7 and self.menu_keys and self.memory[self.symbols['FtMenu']]:
+            self.ps2_queue+=self.menu_keys;self.menu_keys=b''
+        if port&255==0x1F and self.joy is not None:
+            return self.joy.pop(0) if len(self.joy)>1 else self.joy[0]
+        return super().port_in(port)
 
 class LauncherTest(unittest.TestCase):
     def seed_file(self,disk,name,data):
@@ -851,6 +870,40 @@ class LauncherTest(unittest.TestCase):
         self.check_loading_screen(m,esp,28+200+4+6)                     # ELF передан: FT_AT_COMMIT + FT_AT_START
         disk,_=disk_image();esp=Esp(cached=True);m=Machine(disk,esp);m.run()
         self.assertTrue(esp.done);self.check_loading_screen(m,esp,28+6)  # ELF в кэше ESP
+    def run_menu(self,wads,want,keys=b'',joy=None,ft=True):
+        disk,folder=disk_image()
+        for name in wads:add_wad(disk,folder,name)
+        esp=Esp(cached=True);esp.wad_name=want
+        m=MenuMachine(disk,esp,keys=keys,joy=joy);m.ft.answer=ft;m.run()
+        self.assertTrue(esp.done,(m.memory[m.symbols['BootStage']],m.memory[m.symbols['BootError']]))
+        self.assertEqual(disk.contents('D1SAVE0.DSG',folder),SAVE)
+        return m
+    def menu_lines(self,m):
+        # листы FT812 с меню: пункты шрифтом 27 (каждый с тенью — дважды), подсказка шрифтом 26
+        return [dl for dl in m.ft.dls if any(t[:1].isdigit() for t in dl_text(dl,27))]
+    def test_wad_menu_digit(self):
+        m=self.run_menu(['DOOM2.WAD'],'DOOM2.WAD',keys=bytes([0x1E,0xF0,0x1E]))       # «2»
+        menus=self.menu_lines(m);self.assertTrue(menus)
+        self.assertEqual(dl_text(menus[0],27),['1DOOMSHAREWARE']*2+['2DOOMII']*2)
+        self.assertEqual(dl_text(menus[0],26),['Choosethegame:numberorarrows,Entertostart']*2)
+        last=m.ft.dls[-1]                                             # после меню — обычный экран
+        self.assertEqual(dl_text(last,27),['StartingDOOM']*2);self.assertEqual(dl_text(last,26),['DOOM2.WAD']*2)
+    def test_wad_menu_arrows(self):
+        down=bytes([0xE0,0x72,0xE0,0xF0,0x72]);up=bytes([0xE0,0x75,0xE0,0xF0,0x75])
+        m=self.run_menu(['DOOM2.WAD','DOOM.WAD'],'DOOM1.WAD',keys=down+down+up+bytes([0x5A,0xF0,0x5A]))
+        menus=self.menu_lines(m)
+        self.assertEqual(dl_text(menus[0],27),['1DOOM']*2+['2DOOMSHAREWARE']*2+['3DOOMII']*2)
+        # выделенный пункт — цветом процентов (#FF9A3C), остальные — цветом этапа; в первом кадре — первый
+        first=menus[0];at=[i for i,w in enumerate(first) if w==0x0500001B];colors=[first[at[k]-2] for k in (1,3,5)]
+        self.assertEqual(colors,[0x04FF9A3C,0x04E0D2C0,0x04E0D2C0])
+    def test_wad_menu_joystick(self):
+        self.run_menu(['DOOM2.WAD'],'DOOM2.WAD',joy=[0,0x04,0,0x10,0])     # вниз, огонь
+    def test_wad_menu_wraps_and_ignores_missing_number(self):
+        up=bytes([0xE0,0x75,0xE0,0xF0,0x75])
+        self.run_menu(['DOOM2.WAD'],'DOOM2.WAD',keys=bytes([0x26,0xF0,0x26])+up+bytes([0x29,0xF0,0x29]))  # «3» нет; вверх с 1 — на последний
+    def test_wad_without_ft812_takes_first(self):
+        m=self.run_menu(['DOOM2.WAD'],'DOOM1.WAD',ft=False)
+        self.assertFalse(self.menu_lines(m))
     def test_no_ft812_still_boots(self):
         disk,folder=disk_image();esp=Esp(cached=True);m=Machine(disk,esp);m.ft.answer=False;m.run()
         self.assertTrue(esp.done);self.assertEqual(disk.contents('D1SAVE0.DSG',folder),SAVE)

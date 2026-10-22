@@ -4,9 +4,8 @@
 |---|---|---|
 | doomgeneric | https://github.com/ozkl/doomgeneric — `e257a09527062bfb986b6e5e0780839b6cbd5b71` | GPL-2.0-or-later, `third_party/doomgeneric/LICENSE` |
 | FAT32 Driver ZX Evolution | https://github.com/andrewinsidelazarev/FAT32-Driver-ZX-Evolution — `e72839070fcdc8eb0b6dbae2b9f6ff52b0a2a22d` | MIT, `third_party/fat32/LICENSE` |
-| ABI VDAC4 и Z80 SPI/protocol | локальный проект `E:\zx\Tang Nano 20k VDAC\VDAC4`, снимок 19.10.2026 | MIT, `licenses/VDAC4-MIT.txt` |
+| ABI VDAC4 и Z80 SPI/protocol | https://github.com/andrewinsidelazarev/VDAC4, снимок 19.10.2026 | MIT, `licenses/VDAC4-MIT.txt` |
 | Посекторный поиск каталога FAT32 | `E:\zx\R-Type VDAC2+\Source\ASM\rtype_loader.asm`, снимок 19.10.2026; адаптирован в `launcher/directory.asm` | MIT, `licenses/R-Type-MIT.txt` |
-| Сопроцессор BL616 | локальный `E:\zx\Tang Nano 20k VDAC\bl616`, снимок 19.10.2026 | исходные уведомления Apache-2.0 в файлах; miniz — свои уведомления в `copro/third_party/` |
 | Картинка экрана загрузки «DOOM ZX Evolution» | `assets/loader.png` — нарисована Codex (генерация изображений) 20.10.2026 по просьбе автора порта, им же 20.10.2026 опущена надпись «ZX EVOLUTION» над полосой; `assets/loader.jpg`, `main/loader_image.c` — из неё | — |
 
 В doomgeneric изменены `g_game.c` (проверка ошибок сохранения и замена через

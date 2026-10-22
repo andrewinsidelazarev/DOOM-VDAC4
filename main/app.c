@@ -344,7 +344,7 @@ static void stop(void) {
     }
 }
 int main(int argc,char **argv) {
-    static const zm_app_t app={sizeof(zm_app_t),1,3,"doom","1.0",0x70,0x76,start,stop,command,NULL};
+    static const zm_app_t app={sizeof(zm_app_t),1,3,"doom","1.1",0x70,0x76,start,stop,command,NULL};
     if(argc!=3) return 0;
     *(const zm_app_t**)argv[2]=&app; return 1;
 }

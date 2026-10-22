@@ -1,10 +1,10 @@
 {
   "_DOOM.SPG": {
-    "bytes": 245248,
-    "sha256": "43c5a0274a36a9b13458d4f50e13db7a9ffbaf15952507694f1612c7151759c3"
+    "bytes": 247296,
+    "sha256": "ba973b20dfa75cbbfb7026c706df0438257a6b49070907c8af42c408a2b60b0b"
   },
   "DOOM.ELF": {
     "bytes": 371812,
-    "sha256": "0ed2f8a200e1b05fe61448ba3d8d7e52713b67664434e3e5952faeb4d1b99edf"
+    "sha256": "a7fa833c55f0640e117c6046c13b25cd04addd60fe0205eb0f50865199d07fbd"
   }
 }

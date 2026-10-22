@@ -188,15 +188,8 @@ Commit:
         ld hl,FT_AT_COMMIT
         call FtProgress
 Uploaded:
-        ; First existing IWAD: DOOM2, DOOM, DOOM1. Same game directory.
-        ld hl,Wad2
-        call FindWad
-        jr nz,.wad
-        ld hl,WadFull
-        call FindWad
-        jr nz,.wad
-        ld hl,WadShare
-        call FindWad
+        ; IWAD в каталоге игры: один — он, несколько — меню выбора на экране загрузки (wadmenu.asm)
+        call ChooseWad
         jr nz,.wad
         ld hl,MsgMissingWad
         ld (BootMessage),hl
@@ -309,31 +302,7 @@ SendKeys:
         in a,(c)
         ld (hl),a
         inc hl
-        ld bc,#EFF7
-        ld a,#80
-        out (c),a
-        ld a,(Ps2Ready)
-        or a
-        jr nz,.queue
-        inc a
-        ld (Ps2Ready),a
-        ld b,#DF
-        ld a,#0C
-        out (c),a
-        ld b,#BF
-        ld a,1                         ; сброс буфера
-        out (c),a
-        ld b,#DF
-        ld a,#F0
-        out (c),a
-        ld b,#BF
-        ld a,2                         ; приём с клавиатуры
-        out (c),a
-.queue:
-        ld b,#DF
-        ld a,#F0
-        out (c),a
-        ld b,#BF
+        call Ps2Open
         ld e,PS2_DRAIN
 .drain:
         in a,(c)
@@ -360,6 +329,36 @@ SendKeys:
         ld (hl),32
         ld a,#73
         jp Proto_SendEmpty
+
+; Очередь PS/2 AVR: открыть регистры Gluk, в первый раз — сброс буфера и приём с клавиатуры.
+; Выход: BC = #BFF7, выбран #F0 — IN A,(C) даёт очередной байт (0 — пусто). HL, DE не портит.
+Ps2Open:
+        ld bc,#EFF7
+        ld a,#80
+        out (c),a
+        ld a,(Ps2Ready)
+        or a
+        jr nz,.queue
+        inc a
+        ld (Ps2Ready),a
+        ld b,#DF
+        ld a,#0C
+        out (c),a
+        ld b,#BF
+        ld a,1                         ; сброс буфера
+        out (c),a
+        ld b,#DF
+        ld a,#F0
+        out (c),a
+        ld b,#BF
+        ld a,2                         ; приём с клавиатуры
+        out (c),a
+.queue:
+        ld b,#DF
+        ld a,#F0
+        out (c),a
+        ld b,#BF
+        ret
 
 ; E4 [sequence u16, offset u32, length u16] -> 71 [sequence,count,data].
 ServeRead:
@@ -541,6 +540,7 @@ PutBuf: ds 1020
         INCLUDE "fastread.asm"
         INCLUDE "files.asm"
         INCLUDE "diagnostic.asm"
+        INCLUDE "wadmenu.asm"
         INCLUDE "ftscreen.asm"
         INCLUDE "zifi_link.asm"
         INCLUDE "proto.asm"
